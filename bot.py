@@ -14,7 +14,7 @@ bot = telebot.TeleBot(os.getenv("TOKEN"))
 url_pattern = r'https?://[^\s\)\]\}<>"]+'
 MAX_URLS = 10
 options = {
-    'zoom': '1.8',
+    'zoom': '1.0', # можете поставить 1.8, если файл планируется читать на мобильных устройствах
 }
 
 def convert_url_to_pdf(url, id, n, m):
