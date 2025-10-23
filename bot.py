@@ -44,7 +44,7 @@ def echo_message(message):
     n = 0
     com = 0
     if len(urls) > 0 and len(urls) <= MAX_URLS:
-        name = f'archive-{message.from_user.id}.zip'
+        name = f'archive-{message.from_user.id}{message.message_id}.zip'
         zipf = zipfile.ZipFile(name, 'w', zipfile.ZIP_DEFLATED)
         for url in urls:
             n += 1
@@ -58,6 +58,11 @@ def echo_message(message):
         bot.send_document(message.from_user.id, open(name, 'rb'))
         os.remove(name)
         bot.send_message(message.from_user.id, f"Успешно сконвертировано {com} из {n} ссылок")
+    elif len(urls) == 1:
+        m = bot.send_message(message.from_user.id, f"Процесс над файлом").message_id
+        file = convert_url_to_pdf(urls[0], message.from_user.id, "", m)
+        bot.send_document(message.from_user.id, open(file, 'rb'))
+        os.remove(file)
     elif len(urls) > MAX_URLS:
         bot.send_message(message.from_user.id, f"Максимальное количество ссылкон на обработку: {MAX_URLS}")
     else:
