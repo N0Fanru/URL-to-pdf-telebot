@@ -1,4 +1,4 @@
-telebot
+aiogram
 pdfkit
 beautifulsoup4
 requests

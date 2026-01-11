@@ -1,72 +1,149 @@
+import asyncio
 import pdfkit
-import telebot
-from requests import get
+from requests  import get
 from bs4 import BeautifulSoup
 import string
 import os
 import zipfile
 import re
 from dotenv import load_dotenv
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import FSInputFile
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.memory import MemoryStorage
+
+MAX_URLS = 50
+MAX_PAGE_SIZE = 200
+MAX_CONVERSION_TIME = 60
+
+options_mobile = {
+    'encoding': "UTF-8",
+    'user-style-sheet': 'resize.css'
+}
+options = {'encoding': "UTF-8",}
 
 load_dotenv()
+bot = Bot(os.getenv("TOKEN"))
+dp = Dispatcher(storage=MemoryStorage())
 
-bot = telebot.TeleBot(os.getenv("TOKEN"))
 url_pattern = r'https?://[^\s\)\]\}<>"]+'
-MAX_URLS = 10
-options = {
-    'zoom': '1.0', # можете поставить 1.8, если файл планируется читать на мобильных устройствах
-}
 
-def convert_url_to_pdf(url, id, n, m):
+async def convert_url_to_pdf(url: str, id: int, n: int, m: int, mobile: bool):
     try:
         response = get(url)
+        content_length = len(response.content)
+        if content_length > MAX_PAGE_SIZE * 1024:
+            size_mb = content_length / 1024
+            await bot.edit_message_text(
+                f'Процесс над файлом номер {n}\nСтраница слишком большая ({size_mb:.1f} КБ). Максимум: {MAX_PAGE_SIZE} КБ', 
+                chat_id=id, 
+                message_id=m
+            )
+            return False
         title = BeautifulSoup(response.content, 'html.parser').title.string
         if title is None:
             title = "Сайт в pdf"
         title = str(n) + ". " + title.translate(str.maketrans('', '', string.punctuation)) + ".pdf"
-        pdfkit.from_url(url, title, options=options)
+        if mobile:
+            options_ = options_mobile
+        else:
+            options_ = options
+        loop = asyncio.get_event_loop()
+        await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: pdfkit.from_url(url, title, options=options_)
+                ),
+                timeout=MAX_CONVERSION_TIME
+            )
         return title
+    except TimeoutError:
+            await bot.edit_message_text(
+                f'Процесс над файлом номер {n}\nПревышено время ожидания ({MAX_CONVERSION_TIME} секунд)',
+                chat_id=id,
+                message_id=m
+            )
+            return False
     except Exception as e:
-        bot.edit_message_text(f'Процесс над файлом номер {n}\nПроизошла ошибка: {e}', id, m)
+        await bot.edit_message_text(f'Процесс над файлом номер {n}\nПроизошла ошибка: {e}', chat_id=id, message_id=m)
         print(f'Error: {e}')
         return False
+    
+@dp.message()
+async def echo_message(message: types.Message, state: FSMContext):
+    if message.chat.type == 'private':
+        urls = re.findall(url_pattern, message.text)
+        if message.entities:
+            for entity in message.entities:
+                if entity.type == "text_link":
+                    urls.append(entity.url)
+        if len(urls) > MAX_URLS:
+            await bot.send_message(message.from_user.id, f"Максимальное количество ссылкон на обработку: {MAX_URLS}")
+        elif len(urls) == 0:
+            await bot.send_message(message.from_user.id, "Ни одного url не найдено")
+        else:
+            await state.update_data(urls=urls)
+            markup = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text='Обычный', callback_data='normal'),
+                types.InlineKeyboardButton(text='Для телефона', callback_data='mobile')],
+                [types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
+            ])
+            await bot.send_message(message.from_user.id, f"Найдено {len(urls)}, выберите режим.", reply_markup=markup)
 
-        
 
-@bot.message_handler(content_types=['text'])
-def echo_message(message):
-    urls = re.findall(url_pattern, message.text)
-    if message.entities:
-        for entity in message.entities:
-            if entity.type == "text_link":
-                urls.append(entity.url)
+@dp.callback_query(F.data == 'cancel')
+async def callback_cancel(call: types.CallbackQuery, state: FSMContext):
+    try:
+        await state.clear()
+        await call.message.edit_text("Действие отменено.")
+    except TelegramBadRequest:
+        await call.answer("Сообщение устарело")
 
+async def convert_and_send(urls: list, id: int, mes_id: int, mobile: bool):
+    await bot.delete_message(id, mes_id)
     n = 0
     com = 0
-    if len(urls) > 0 and len(urls) <= MAX_URLS:
-        name = f'archive-{message.from_user.id}{message.message_id}.zip'
+    if len(urls) > 1 and len(urls) <= MAX_URLS:
+        name = f'archive-{id}{mes_id}.zip'
         zipf = zipfile.ZipFile(name, 'w', zipfile.ZIP_DEFLATED)
         for url in urls:
             n += 1
-            m = bot.send_message(message.from_user.id, f"Процесс над файлом номер {n}").message_id
-            file = convert_url_to_pdf(url, message.from_user.id, n, m)
+            m = await bot.send_message(id, f"Процесс над файлом номер {n}, это может занять некоторое время.")
+            file = await convert_url_to_pdf(url, id, n, m.message_id, mobile)
             if file:
                 zipf.write(file)
                 os.remove(file)
                 com += 1
         zipf.close()
-        bot.send_document(message.from_user.id, open(name, 'rb'))
+        await bot.send_document(
+                chat_id=id,
+                document=FSInputFile(name)
+                )
         os.remove(name)
-        bot.send_message(message.from_user.id, f"Успешно сконвертировано {com} из {n} ссылок")
+        await bot.send_message(id, f"Успешно сконвертировано {com} из {n} ссылок")
     elif len(urls) == 1:
-        m = bot.send_message(message.from_user.id, f"Процесс над файлом").message_id
-        file = convert_url_to_pdf(urls[0], message.from_user.id, "", m)
-        bot.send_document(message.from_user.id, open(file, 'rb'))
+        m = await bot.send_message(id, f"Процесс над файлом, это может занять некоторое время.")
+        file = await convert_url_to_pdf(urls[0], id, "", m.message_id, mobile)
+        await bot.send_document(
+                chat_id=id,
+                document=FSInputFile(file)
+                )
         os.remove(file)
-    elif len(urls) > MAX_URLS:
-        bot.send_message(message.from_user.id, f"Максимальное количество ссылкон на обработку: {MAX_URLS}")
-    else:
-        bot.send_message(message.from_user.id, "Ни одного url не найдено")
+
+@dp.callback_query(F.data == 'normal')
+async def callback_normal(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, False)
+
+@dp.callback_query(F.data == 'mobile')
+async def callback_mobile(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, True)
 
 
-bot.infinity_polling(none_stop=True)
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())

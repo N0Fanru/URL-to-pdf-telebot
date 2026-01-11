@@ -1,0 +1,55 @@
+/* custom.css */
+@page {
+    size: A4;
+    margin: 15mm;
+}
+
+body {
+    width: 100% !important;
+    max-width: 100% !important;
+    zoom: 2.4 !important;
+    -webkit-print-color-adjust: exact !important;
+}
+
+/* Критические элементы - не разрывать */
+.keep-together, 
+p, h1, h2, h3, h4, h5, h6,
+table, ul, ol, img, pre, code,
+blockquote {
+    page-break-inside: avoid !important;
+    break-inside: avoid-page !important;
+}
+
+/* Разрешить разрыв после заголовков */
+h1, h2, h3 {
+    page-break-after: avoid !important;
+}
+
+/* Для таблиц */
+table {
+    page-break-inside: auto !important;
+}
+
+tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+}
+
+/* Для изображений */
+img {
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+}
+
+/* Для списков */
+li {
+    page-break-inside: avoid !important;
+}
+
+@media print {
+    body {
+        padding: 0px !important;
+        margin: 0 !important;
+    }
+}
