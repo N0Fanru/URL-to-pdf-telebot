@@ -1,16 +1,34 @@
-## О боте
-Простой телеграм бот для конвертации **нескольких** веб-страниц в формат PDF. Создавался для личного пользования, однако и в эксперементе с нексолькоми запросами от разных пользователей бот был работоспособен.
+[![eng](https://img.shields.io/badge/lang-en-en)](https://github.com/N0Fanru/URL-to-pdf-telebot/blob/main/README.md)
+[![rus](https://img.shields.io/badge/lang-ru-ru?color=DCDCDC)](https://github.com/N0Fanru/URL-to-pdf-telebot/blob/main/README-ru.md)
 
-### Как бот работает:
-1. Пользователь кидает текст, содержашие несколько ссылок (в текстовом виде или в виде гиперссылок)
-2. Бот конвертирует в pdf каждую ссылку по порядку и сохраняет всё в один архив
-3. Отправляется пользователю zip-архив со всеми pdf файлами (Если ссылка одна, то отправляетс pdf-файл)
-<br>
+## About the bot
+A simple Telegram bot for converting **multiple** web pages to PDF format. The user can choose to download the file in standard size or optimized for mobile devices.
 
-## About the Bot
-A simple Telegram bot for converting **multiple** web pages to PDF. It was created for personal use, but the bot also worked in an experiment with multiple requests from different users.
+## ✨ How the bot works:
+1. The user sends text containing several links (as plain text or hyperlinks)
+2. The bot converts each link to PDF in order and saves everything into a single archive
+3. A zip archive containing all PDF files is sent to the user (If there is only one link, the PDF file is sent directly)
 
-### How the bot works:
-1. The user submits a text message containing several links (either text or hyperlinks).
-2. The bot converts each link to PDF in order and saves them all in a single archive.
-3. A zip archive containing all PDF files is sent to the user. (If there is only one link, the PDF file is sent.)
+## ⚙️ Installation and Setup
+
+**Note:** It is recommended to run the bot on a hosting service or server, as any Telegram bot requires constantly running code for continuous operation.
+
+1. Prerequisites
+   - Python 3.8+
+   - Your Telegram bot token ([Where to get it](https://t.me/BotFather))
+   - Installed [wkhtmltopdf](https://wkhtmltopdf.org/downloads.html)
+  
+2. Cloning the repository
+   <br>`git clone https://github.com/N0Fanru/URL-to-pdf-telebot`
+   <br>*or*
+   <br>download as a ZIP file and extract it
+
+3. Installing dependencies
+   <br>In the command line: `pip install -r requirements.txt`
+
+4. Create a `.env` file based on the `.env.example` file
+
+5. Start the bot
+   <br>`python bot.py`
+
+#### If you liked the project, don't forget to give it a ⭐ on GitHub!
