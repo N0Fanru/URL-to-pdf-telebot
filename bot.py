@@ -18,7 +18,7 @@ from aiogram.enums import ParseMode
 AUTHOR = "@n0fanru"
 
 MAX_URLS = 50
-MAX_PAGE_SIZE = 200
+MAX_PAGE_SIZE = 400
 MAX_CONVERSION_TIME = 60
 
 options_mobile = {
