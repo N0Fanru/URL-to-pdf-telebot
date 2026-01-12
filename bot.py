@@ -8,10 +8,13 @@ import zipfile
 import re
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
+
+AUTHOR = "@n0fanru"
 
 MAX_URLS = 50
 MAX_PAGE_SIZE = 200
@@ -70,17 +73,28 @@ async def convert_url_to_pdf(url: str, id: int, n: int, m: int, mobile: bool):
         print(f'Error: {e}')
         return False
     
+
+@dp.message(Command("start"))
+@dp.message(Command("help"))
+async def delete_command(message: types.Message, state: FSMContext):
+    await state.clear()
+    await bot.send_message(message.from_user.id, f"Отправьте боту сообщение содержащее ссылку или несколько ссылок на web-страницу, бот сконвертирует и отправит вам pdf-файл. \n\nПо ошибкам и вопросам писать: {AUTHOR}")
+
 @dp.message()
 async def echo_message(message: types.Message, state: FSMContext):
     if message.chat.type == 'private':
+        if await state.get_data() != {}:
+            await bot.send_message(message.from_user.id, "Сначала дождитесь завершения предыдущих конвертаций.")
+            return 0
         urls = re.findall(url_pattern, message.text)
         if message.entities:
             for entity in message.entities:
                 if entity.type == "text_link":
                     urls.append(entity.url)
         if len(urls) > MAX_URLS:
-            await bot.send_message(message.from_user.id, f"Максимальное количество ссылкон на обработку: {MAX_URLS}")
+            await bot.send_message(message.from_user.id, f"Максимальное количество ссылок на обработку: {MAX_URLS}")
         elif len(urls) == 0:
+            state.clear()
             await bot.send_message(message.from_user.id, "Ни одного url не найдено")
         else:
             await state.update_data(urls=urls)
@@ -89,8 +103,13 @@ async def echo_message(message: types.Message, state: FSMContext):
                 types.InlineKeyboardButton(text='Для телефона', callback_data='mobile')],
                 [types.InlineKeyboardButton(text='Отмена', callback_data='cancel')]
             ])
-            await bot.send_message(message.from_user.id, f"Найдено {len(urls)}, выберите режим.", reply_markup=markup)
+            await bot.send_message(message.from_user.id, f"Найдено {len(urls)} ссылок, выберите режим.", reply_markup=markup)
 
+
+@dp.message(Command("cancel"))
+async def callback_cancel(message: types.Message, state: FSMContext):
+    await state.clear()
+    await bot.send_message(message.from_user.id, "Действие отменено.")
 
 @dp.callback_query(F.data == 'cancel')
 async def callback_cancel(call: types.CallbackQuery, state: FSMContext):
@@ -100,7 +119,7 @@ async def callback_cancel(call: types.CallbackQuery, state: FSMContext):
     except TelegramBadRequest:
         await call.answer("Сообщение устарело")
 
-async def convert_and_send(urls: list, id: int, mes_id: int, mobile: bool):
+async def convert_and_send(urls: list, id: int, mes_id: int, mobile: bool, state):
     await bot.delete_message(id, mes_id)
     n = 0
     com = 0
@@ -130,16 +149,17 @@ async def convert_and_send(urls: list, id: int, mes_id: int, mobile: bool):
                 document=FSInputFile(file)
                 )
         os.remove(file)
+    await state.clear()
 
 @dp.callback_query(F.data == 'normal')
 async def callback_normal(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, False)
+    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, False, state)
 
 @dp.callback_query(F.data == 'mobile')
 async def callback_mobile(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, True)
+    await convert_and_send(data.get('urls'), call.from_user.id, call.message.message_id, True, state)
 
 
 async def main():
