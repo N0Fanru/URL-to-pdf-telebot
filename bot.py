@@ -40,7 +40,7 @@ async def convert_url_to_pdf(url: str, id: int, n: int, m: int, mobile: bool):
         if content_length > MAX_PAGE_SIZE * 1024:
             size_mb = content_length / 1024
             await bot.edit_message_text(
-                f'Процесс над файлом номер {n}\nСтраница слишком большая ({size_mb:.1f} КБ). Максимум: {MAX_PAGE_SIZE} КБ', 
+                f'Страница слишком большая ({size_mb:.1f} КБ). Максимум: {MAX_PAGE_SIZE} КБ', 
                 chat_id=id, 
                 message_id=m
             )
@@ -64,13 +64,13 @@ async def convert_url_to_pdf(url: str, id: int, n: int, m: int, mobile: bool):
         return title
     except TimeoutError:
             await bot.edit_message_text(
-                f'Процесс над файлом номер {n}\nПревышено время ожидания ({MAX_CONVERSION_TIME} секунд)',
+                f'Превышено время ожидания ({MAX_CONVERSION_TIME} секунд)',
                 chat_id=id,
                 message_id=m
             )
             return False
     except Exception as e:
-        await bot.edit_message_text(f'Процесс над файлом номер {n}\nПроизошла ошибка: {e}', chat_id=id, message_id=m)
+        await bot.edit_message_text(f'Произошла ошибка: {e}', chat_id=id, message_id=m)
         print(f'Error: {e}')
         return False
     
@@ -148,11 +148,12 @@ async def convert_and_send(urls: list, id: int, mes_id: int, mobile: bool, state
     elif len(urls) == 1:
         m = await bot.send_message(id, f"Процесс над файлом, это может занять некоторое время.")
         file = await convert_url_to_pdf(urls[0], id, "", m.message_id, mobile)
-        await bot.send_document(
-                chat_id=id,
-                document=FSInputFile(file)
-                )
-        os.remove(file)
+        if file:
+            await bot.send_document(
+                    chat_id=id,
+                    document=FSInputFile(file)
+                    )
+            os.remove(file)
     await state.clear()
 
 @dp.callback_query(F.data == 'normal')
