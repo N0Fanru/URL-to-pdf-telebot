@@ -13,6 +13,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.enums import ParseMode
 
 AUTHOR = "@n0fanru"
 
@@ -78,7 +79,10 @@ async def convert_url_to_pdf(url: str, id: int, n: int, m: int, mobile: bool):
 @dp.message(Command("help"))
 async def delete_command(message: types.Message, state: FSMContext):
     await state.clear()
-    await bot.send_message(message.from_user.id, f"Отправьте боту сообщение содержащее ссылку или несколько ссылок на web-страницу, бот сконвертирует и отправит вам pdf-файл. \n\nПо ошибкам и вопросам писать: {AUTHOR}")
+    await bot.send_message(message.from_user.id,
+    f'''Отправьте боту сообщение содержащее ссылку или несколько ссылок на web-страницу, бот сконвертирует и отправит вам pdf-файл.
+\nПо ошибкам и вопросам писать: {AUTHOR}\n<a href="https://github.com/N0Fanru/URL-to-pdf-telebot">Исходный код бота</a>''',
+    parse_mode=ParseMode.HTML, disable_web_page_preview=True)
 
 @dp.message()
 async def echo_message(message: types.Message, state: FSMContext):
